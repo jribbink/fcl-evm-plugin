@@ -1,10 +1,19 @@
+import "VirtualTransactionHelper"
+
 access(all) contract EVMVirtualAccountManager {
     access(all) let accountRegistry: {String: VirtualAccount}
 
-    access(all) let deployedTransactions: {String: Type}
-
     // Stores all VirtualAccount interactions where transaction hash is the key
-    access(all) let transactionRegistry: {String: {EVMVirtualAccountManager.VirtualTransaction}}
+    access(all) let transactionRegistry: {String: VirtualTransactionLocator}
+    access(all) struct VirtualTransactionLocator {
+        access(all) let acctAddress: Address
+        access(all) let name: String
+
+        init(acctAddress: Address, name: String) {
+            self.acctAddress = acctAddress
+            self.name = name
+        }
+    }
 
     access(all) struct VirtualAccount {
         access(all) let account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>
@@ -21,6 +30,7 @@ access(all) contract EVMVirtualAccountManager {
             signature: String,
         ): Void {
             // TODO: Verify the signature against the function hash
+            // THIS IS CURRENTLY NOT DONE, but IS easily possible just not worth implementing for POC
             // We should use something like eth_signTypedData_v4
             // This should be done in the EVM
             // This should be in a well structured format
@@ -28,13 +38,19 @@ access(all) contract EVMVirtualAccountManager {
             let resolvedSigners: [AnyStruct] = signers
 
             // TODO: this is not safe and gives more entitlements than authorized
-            resolvedSigners[virtualSignerIndex] = self.account.borrow()
+            resolvedSigners.insert(at: virtualSignerIndex, self.account.borrow())
 
             let virtualTransaction = EVMVirtualAccountManager.transactionRegistry[functionHash]
                 ?? panic("Function not found in transaction registry")
             
             // Call the virtual transaction
-            virtualTransaction.run(arguments: arguments, signers: resolvedSigners)
+            let txContract = getAccount(virtualTransaction.acctAddress).contracts.borrow<&{VirtualTransactionHelper}>(name: virtualTransaction.name)
+                ?? panic("Could not borrow reference to VirtualTransactionHelper")
+
+            let tx = txContract.createVirtualTransaction(args: arguments)
+            
+            tx.virtualPrepare(signers: resolvedSigners)
+            tx.virtualExecute()
         }
 
         init(account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>) {
@@ -42,19 +58,30 @@ access(all) contract EVMVirtualAccountManager {
         }
     }
 
-    access(all)
-    struct interface VirtualTransaction {
-        access(all) fun run(
-            arguments: [AnyStruct],
-            signers: [AnyStruct],
-        ): Void
+    access(all) fun runVirtualTransaction(
+        functionHash: String,
+        arguments: [AnyStruct],
+        signers: [AnyStruct],
+        virtualSignerIndex: UInt8,
+        evmAddress: [UInt8; 20],
+        signature: String,
+    ): Void {
+        let virtualAccount = self.accountRegistry[String.fromUTF8(evmAddress.toVariableSized())!]
+            ?? panic("Virtual account not found")
+
+        virtualAccount.run(
+            functionHash: functionHash,
+            arguments: arguments,
+            signers: signers,
+            virtualSignerIndex: virtualSignerIndex,
+            signature: signature,
+        )
     }
 
     access(all)
-    fun deployVirtualTransaction(
+    fun createVirtualTransaction(
         payer: auth(BorrowValue) &Account,
         transactionBody: [UInt8],
-        account: Capability<auth(Storage, Contracts, Inbox, Capabilities) &Account>
     ): Void {
         // TODO: This needs a serious security audit
 
@@ -63,28 +90,16 @@ access(all) contract EVMVirtualAccountManager {
         let hash = HashAlgorithm.SHA3_256.hash(transactionBody)
         
         let contractName = "VirtualTransaction_".concat(String.fromUTF8(hash)!)
-
-        let deployedContract = deployer.contracts.add(name: contractName, code: transactionBody)
-
-        let type = CompositeType(deployedContract.address.toString().concat(".").concat(contractName).concat(".VirtualTransaction"))!
         
-        self.deployedTransactions[contractName] = type
-    }
+        deployer.contracts.add(name: contractName, code: transactionBody)
 
-    access(all)
-    fun registerVirtualTransaction(
-        functionHash: [UInt8],
-        virtualTransaction: {EVMVirtualAccountManager.VirtualTransaction}
-    ): Void {
-        // Verify that the transaction type is correct
-        let deployedType = self.deployedTransactions[String.fromUTF8(functionHash)!]
-            ?? panic("Virtual transaction not deployed")
-            
-        if !virtualTransaction.isInstance(deployedType) {
-            panic("Virtual transaction type does not match deployed contract")
-        }
-
-        EVMVirtualAccountManager.transactionRegistry[String.fromUTF8(functionHash)!] = virtualTransaction
+        let deployedRef = deployer.contracts.borrow<&{VirtualTransactionHelper}>(name: contractName)
+            ?? panic("Could not borrow reference to VirtualTransactionHelper")
+        
+        EVMVirtualAccountManager.transactionRegistry[String.fromUTF8(hash)!] = VirtualTransactionLocator(
+            acctAddress: deployer.address,
+            name: contractName,
+        )
     }
 
     access(all)
@@ -103,6 +118,5 @@ access(all) contract EVMVirtualAccountManager {
     init() {
         self.accountRegistry = {}
         self.transactionRegistry = {}
-        self.deployedTransactions = {}
     }
 }

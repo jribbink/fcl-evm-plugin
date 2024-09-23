@@ -1,23 +1,19 @@
-import { Config, Connector, signTypedData } from "@wagmi/core";
+import { Config, Connector, signMessage } from "@wagmi/core";
 import { FclService } from "../fcl-service";
-import { flowMainnet } from "viem/chains";
 
 export class AuthzService implements FclService {
     constructor(
         private wagmiConfig: Config,
-        private getAddress: () => string
-        private chainId: number,
-    ) {
-        
-    }
+        private connector: Connector,
+    ) {}
 
     async execute(request: any) {
         const payload = request.payload;
 
-        signTypedData(this.wagmiConfig, {
-            account: this.getAddress() as `0x${string}`,
-            chainId: flowMainnet.id,
-            data: payload,
+        // TODO: use the sig
+        const signature = await signMessage(this.wagmiConfig, {
+            connector: this.connector,
+            message: payload.message,
         })
         
         return {

@@ -3,3 +3,5 @@ node_modules
 # flow
 emulator-account.pkey
 imports
+
+testnet.pkey

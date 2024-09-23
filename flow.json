@@ -11,6 +11,12 @@
 			"aliases": {
 				"testing": "0000000000000007"
 			}
+		},
+		"VirtualTransactionHelper": {
+			"source": "cadence/contracts/VirtualTransactionHelper.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
 		}
 	},
 	"networks": {
@@ -27,6 +33,22 @@
 				"type": "file",
 				"location": "emulator-account.pkey"
 			}
+		},
+		"testnet": {
+			"address": "d5da7ccd348c71b6",
+			"key": {
+				"type": "file",
+				"location": "testnet.pkey"
+			}
+		}
+	},
+	"deployments": {
+		"testnet": {
+			"testnet": [
+				"Dummy",
+				"EVMVirtualAccountManager",
+				"VirtualTransactionHelper"
+			]
 		}
 	}
 }

@@ -14,18 +14,3 @@ const config = createConfig({
 
 const connectors = getConnectors(config)
 
-const connect = async (connector: Connector) => {
-    const {accounts, chainId} = await connector.connect()
-
-    // We need to request to sign a user message
-    const message = "Sign in to continue"
-
-    const data = {
-        message,
-        chainId,
-    }
-
-    const signature = await signTypedData(config, {
-        connector,
-    })
-}

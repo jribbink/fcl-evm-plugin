@@ -1,8 +1,9 @@
 import { Service } from "@onflow/typedefs";
 import { Config, Connector } from "@wagmi/core";
-import { AccountManager } from "../account-manager";
-import { EVM_SERVICE_METHOD } from "../constants";
+import { AccountManager } from "../../account-manager";
+import { EVM_SERVICE_METHOD } from "../../constants";
 import { FclService } from "../fcl-service";
+import { WalletSession } from "../wallet-session";
 
 export class AuthnService implements FclService {
     addressChangeSubscribers: ((address: string) => void)[] = []
@@ -10,7 +11,6 @@ export class AuthnService implements FclService {
     constructor(
         private wagmiConfig: Config,
         private connector: Connector,
-        private getServices: () => Service[],
         private chainId: number,
         private accountManager: AccountManager
     ) {
@@ -26,11 +26,18 @@ export class AuthnService implements FclService {
         const address = await this.accountManager.getAccount(accounts[0])
         this.addressChangeSubscribers.forEach(sub => sub(address))
 
+        // Create a new WalletSession
+        const walletSession = new WalletSession(
+            this.wagmiConfig,
+            this.chainId,
+            this,
+        )
+
         return {
             f_type: "AuthnResponse",
             f_vsn: "1.0.0",
             address: address,
-            services: this.getServices()
+            services: walletSession.getServices(),
         }
     }
 
