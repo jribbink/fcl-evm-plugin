@@ -40,11 +40,18 @@
 				"type": "file",
 				"location": "testnet.pkey"
 			}
+		},
+		"tt": {
+			"address": "b76ce414db2e18ee",
+			"key": {
+				"type": "file",
+				"location": "tt.pkey"
+			}
 		}
 	},
 	"deployments": {
 		"testnet": {
-			"testnet": [
+			"tt": [
 				"Dummy",
 				"EVMVirtualAccountManager",
 				"VirtualTransactionHelper"

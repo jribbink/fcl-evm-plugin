@@ -6,46 +6,42 @@ import { FclService } from "../fcl-service";
 import { WalletSession } from "../wallet-session";
 
 export class AuthnService implements FclService {
-    addressChangeSubscribers: ((address: string) => void)[] = []
+    private endpoint: string
 
     constructor(
         private wagmiConfig: Config,
         private connector: Connector,
         private chainId: number,
-        private accountManager: AccountManager
+        private accountManager: AccountManager,
+        private onNewSession?: (session: WalletSession) => void,
     ) {
-
+        this.endpoint = `evm-authn-${this.connector.name}`
     }
 
-    async execute() {
+    async execute(body: any) {
         const {accounts} = await this.connector.connect({
             chainId: this.chainId,
         })
         
-        // Determine the user's address & notify subscribers
+        // Determine the user's address
         const address = await this.accountManager.getAccount(accounts[0])
-        this.addressChangeSubscribers.forEach(sub => sub(address))
 
         // Create a new WalletSession
         const walletSession = new WalletSession(
             this.wagmiConfig,
             this.chainId,
             this,
+            address,
         )
+
+        // Notify that a new session has been created
+        this.onNewSession?.(walletSession)
 
         return {
             f_type: "AuthnResponse",
             f_vsn: "1.0.0",
-            address: address,
-            services: walletSession.getServices(),
-        }
-    }
-
-    onAddressChange(callback: (address: string) => void): () => void {
-        this.addressChangeSubscribers.push(callback)
-
-        return () => {
-            this.addressChangeSubscribers = this.addressChangeSubscribers.filter(sub => sub !== callback)
+            addr: address,
+            services: walletSession.getServices().map(service => service.getService()),
         }
     }
 
@@ -55,7 +51,7 @@ export class AuthnService implements FclService {
             f_vsn: "1.0.0",
             type: "authn",
             method: EVM_SERVICE_METHOD,
-            endpoint: "evm-authn",
+            endpoint: this.endpoint,
             provider: {
                 uid: `evm-${this.connector.name}`,
                 name: this.connector.name,

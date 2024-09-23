@@ -5,3 +5,6 @@ emulator-account.pkey
 imports
 
 testnet.pkey
+
+dist
+tt.pkey

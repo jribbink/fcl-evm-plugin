@@ -2,7 +2,7 @@ import { Connector, createConfig, getConnectors, injected, signTypedData } from 
 import { flowMainnet } from "@wagmi/core/chains"
 import { createClient, http } from "viem";
 
-const config = createConfig({
+export const dummyConfig = createConfig({
     chains: [flowMainnet],
     connectors: [
         injected(),
@@ -12,5 +12,4 @@ const config = createConfig({
     },
 });
 
-const connectors = getConnectors(config)
-
+export {EVMWalletPlugin} from "./evm-wallet-plugin"

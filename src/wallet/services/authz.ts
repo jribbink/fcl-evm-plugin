@@ -1,19 +1,20 @@
 import { Config, Connector, signMessage } from "@wagmi/core";
 import { FclService } from "../fcl-service";
+import { EVM_SERVICE_METHOD } from "../../constants";
 
 export class AuthzService implements FclService {
     constructor(
         private wagmiConfig: Config,
         private connector: Connector,
+        private address: string,
     ) {}
 
-    async execute(request: any) {
-        const payload = request.payload;
-
+    // TODO: types here/impl
+    async execute(message: any) {
         // TODO: use the sig
         const signature = await signMessage(this.wagmiConfig, {
             connector: this.connector,
-            message: payload.message,
+            message: message,
         })
         
         return {
@@ -37,13 +38,19 @@ export class AuthzService implements FclService {
     }
 
     getService() {
-        return {
+        const service = {
             f_type: "Service",
             f_vsn: "1.0.0",
             type: "authz",
-            method: "authz",
+            method: EVM_SERVICE_METHOD,
             endpoint: "evm-authz",
             params: {}
         } as any
+
+        service.identity = {
+            address: this.address,
+        }
+
+        return service
     }
 }

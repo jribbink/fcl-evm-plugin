@@ -1,13 +1,14 @@
 import "EVMVirtualAccountManager"
+import "Dummy" // Explicit import statement helps with readability/indexers
 
 transaction(
-    hash: String,
     evmAddress: [UInt8],
+    signature: String
 ) {
-    // TODO: Who pays?
+    // TODO: Who pays?  Currently paid for by a hosted signer, but there may be a way to recover fees
     prepare() {
         EVMVirtualAccountManager.runVirtualTransaction(
-            functionHash: hash,
+            virtualTransactionType: Type<Dummy>(),
             arguments: [],
             signers: [],
             virtualSignerIndex: 0,

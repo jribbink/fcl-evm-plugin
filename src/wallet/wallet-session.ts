@@ -1,8 +1,10 @@
 import { Config } from "@wagmi/core";
 import { Service } from "@onflow/typedefs";
-import { AuthnService } from "./services/authn";
 import { AuthzService } from "./services/authz";
 import { AccountManager } from "../account-manager";
+import type { AuthnService } from "./services/authn";
+import { FclService } from "./fcl-service";
+
 
 export class WalletSession {
     accountManager: AccountManager
@@ -12,24 +14,21 @@ export class WalletSession {
         wagmiConfig: Config,
         private chainId: number,
         private authnService: AuthnService,
+        address: string,
     ) {
         this.accountManager = new AccountManager()
 
         this.authzService = new AuthzService(
             wagmiConfig,
             wagmiConfig.connectors[0],
-            () => {
-                console.warn("currently just a stub")
-                return "0x1234567890abcdef1234567890abcdef12345678"
-            },
-            this.chainId,
+            address,
         )
     }
 
-    getServices(): Service[] {
+    getServices(): FclService[] {
         return [
-            this.authnService.getService(),
-            this.authzService.getService(),
+            this.authnService,
+            this.authzService,
         ]
     }
 }
