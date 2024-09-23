@@ -1,0 +1,1 @@
+export const EVM_SERVICE_METHOD = "EVM_SERVICE_PLUGIN"
