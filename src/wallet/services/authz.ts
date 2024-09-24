@@ -2,6 +2,11 @@ import { Config, Connector, signMessage } from "@wagmi/core";
 import { FclService } from "../fcl-service";
 import { EVM_SERVICE_METHOD } from "../../constants";
 
+
+// Do not worry about this file, since it's not actually being used
+// We can't actually use FCL AUTHZ in the tradational sense for virtual transactions
+// FCL Plugins will need to be overhauled to incorporate this use case
+
 export class AuthzService implements FclService {
     constructor(
         private wagmiConfig: Config,

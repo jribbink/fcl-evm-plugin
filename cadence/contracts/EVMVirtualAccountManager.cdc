@@ -4,7 +4,7 @@ access(all) contract EVMVirtualAccountManager {
     access(all) let accountRegistry: {String: VirtualAccount}
 
     // Stores all VirtualAccount interactions where transaction hash is the key
-    access(all) let transactionRegistry: {Type: VirtualTransactionLocator}
+    access(all) let transactionRegistry: {Type: Type}
     access(all) struct VirtualTransactionLocator {
         access(all) let acctAddress: Address
         access(all) let name: String
@@ -102,16 +102,15 @@ access(all) contract EVMVirtualAccountManager {
         
         let deployedContract = deployer.contracts.add(name: contractName, code: transactionBody)
 
+        let typ = deployedContract.getType()
+
         // Check if deployed contract implements helper type
-        if !deployedContract.isInstance(Type<{VirtualTransactionHelper}>()) {
+        if !Type<{VirtualTransactionHelper.VirtualTransaction}>().isSubtype(of: Type<{VirtualTransactionHelper.VirtualTransaction}>()) {
             panic("Contract does not implement VirtualTransactionHelper.VirtualTransaction")
         }
 
         // Store the contract in the transaction registry
-        EVMVirtualAccountManager.transactionRegistry[deployedContract.getType()] = VirtualTransactionLocator(
-            acctAddress: deployer.address,
-            name: contractName,
-        )
+        EVMVirtualAccountManager.transactionRegistry[deployedContract.getType()] = deployedContract.getType()
     }
 
     access(all)

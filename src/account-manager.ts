@@ -5,6 +5,6 @@ export class AccountManager {
 
     async getAccount(evmAddress: string) {
         console.warn("currently just a stub")
-        return "0x455f38fa53d01250"
+        return "0x5f7efaba9334f02e"
     }
 }

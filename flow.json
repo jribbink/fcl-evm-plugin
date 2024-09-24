@@ -27,6 +27,13 @@
 		"testnet": "access.devnet.nodes.onflow.org:9000"
 	},
 	"accounts": {
+		"2": {
+			"address": "5f7efaba9334f02e",
+			"key": {
+				"type": "file",
+				"location": "2.pkey"
+			}
+		},
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
 			"key": {
@@ -51,7 +58,7 @@
 	},
 	"deployments": {
 		"testnet": {
-			"tt": [
+			"2": [
 				"Dummy",
 				"EVMVirtualAccountManager",
 				"VirtualTransactionHelper"
