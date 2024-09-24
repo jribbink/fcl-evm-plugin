@@ -4,7 +4,7 @@ access(all) contract EVMVirtualAccountManager {
     access(all) let accountRegistry: {String: VirtualAccount}
 
     // Stores all VirtualAccount interactions where transaction hash is the key
-    access(all) let transactionRegistry: {Type: Type}
+    access(all) let transactionRegistry: {String: VirtualTransactionLocator}
     access(all) struct VirtualTransactionLocator {
         access(all) let acctAddress: Address
         access(all) let name: String
@@ -19,15 +19,12 @@ access(all) contract EVMVirtualAccountManager {
         // TODO: is this safe
         access(self) let account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>
 
-        // Would need sequence number for replay protection
-        // access(all) let sequenceNumber: UInt64
-
         // TODO: Add in other transaction features that are necessary (i.e. reference block)
         // TODO: what if multiple virtual accounts are used
         // TODO: what if signer is in multiple indexes
         // TODO: run function must restrict the reference entitlements based off the transaction
         access(all) fun run(
-            virtualTransactionType: Type,
+            functionHash: String,
             arguments: [AnyStruct],
             signers: [AnyStruct],
             virtualSignerIndex: UInt8,
@@ -42,11 +39,9 @@ access(all) contract EVMVirtualAccountManager {
             let resolvedSigners: [AnyStruct] = signers
 
             // TODO: this is not safe and gives more entitlements than authorized
-            // There's a few workarounds I know of (i.e. simply storing types for all entitlement sets)
-            // But if there's a way to dynamically downcast safely, that would be ideal
             resolvedSigners.insert(at: virtualSignerIndex, self.account.borrow()!)
 
-            let virtualTransaction = EVMVirtualAccountManager.transactionRegistry[virtualTransactionType]
+            let virtualTransaction = EVMVirtualAccountManager.transactionRegistry[functionHash]
                 ?? panic("Function not found in transaction registry")
             
             // Call the virtual transaction
@@ -55,20 +50,17 @@ access(all) contract EVMVirtualAccountManager {
 
             let tx = txContract.createVirtualTransaction(args: arguments)
             
-            // TODO: pre/post conditions
             tx.virtualPrepare(signers: resolvedSigners)
             tx.virtualExecute()
         }
 
-        init(
-            account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>
-        ) {
+        init(account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>) {
             self.account = account
         }
     }
 
     access(all) fun runVirtualTransaction(
-        virtualTransactionType: Type,
+        functionHash: String,
         arguments: [AnyStruct],
         signers: [AnyStruct],
         virtualSignerIndex: UInt8,
@@ -79,7 +71,7 @@ access(all) contract EVMVirtualAccountManager {
             ?? panic("Virtual account not found")
 
         virtualAccount.run(
-            virtualTransactionType: virtualTransactionType,
+            functionHash: functionHash,
             arguments: arguments,
             signers: signers,
             virtualSignerIndex: virtualSignerIndex,
@@ -94,23 +86,19 @@ access(all) contract EVMVirtualAccountManager {
     ): Void {
         // TODO: This needs a serious security audit
 
-        // Transaction contract deployed to ephemeral keyless account (can be solved through better methods)
         let deployer = Account(payer: payer)
+
+        let hash = HashAlgorithm.SHA3_256.hash(transactionBody)
         
         // TODO: temporary contract name
         let contractName = "VirtualTransactionDefinition"
         
-        let deployedContract = deployer.contracts.add(name: contractName, code: transactionBody)
-
-        let typ = deployedContract.getType()
-
-        // Check if deployed contract implements helper type
-        if !Type<{VirtualTransactionHelper.VirtualTransaction}>().isSubtype(of: Type<{VirtualTransactionHelper.VirtualTransaction}>()) {
-            panic("Contract does not implement VirtualTransactionHelper.VirtualTransaction")
-        }
-
-        // Store the contract in the transaction registry
-        EVMVirtualAccountManager.transactionRegistry[deployedContract.getType()] = deployedContract.getType()
+        deployer.contracts.add(name: contractName, code: transactionBody)
+        
+        EVMVirtualAccountManager.transactionRegistry[String.encodeHex(hash)] = VirtualTransactionLocator(
+            acctAddress: deployer.address,
+            name: contractName,
+        )
     }
 
     access(all)
