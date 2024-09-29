@@ -57,14 +57,8 @@ access(all) contract EVMVirtualAccountManager {
         authorizations: [{Authorization}],
         arguments: [AnyStruct],
     ): Void {
-        // TODO: Verify the signature against the function hash
-        // THIS IS CURRENTLY NOT DONE, but IS easily possible just not worth implementing for POC
-        // We should use something like eth_signTypedData_v4
-        // This should be done in the EVM
-        // This should be in a well structured format
         let virtualTransaction = EVMVirtualAccountManager.transactionRegistry[transactionType]
             ?? panic("Function not found in transaction registry")
-
 
         // Resolve all authorizations
         var resolvedAuthorizations: [AnyStruct] = []
