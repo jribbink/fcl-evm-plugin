@@ -2,11 +2,15 @@
 access(all) contract interface VirtualTransactionHelper {
     access(all)
     struct interface VirtualTransaction {
-        access(all) fun virtualPrepare(
-            signers: [AnyStruct],
+        access(all) fun Prepare(
+            authorizers: [AnyStruct],
         ): Void
 
-        access(all) fun virtualExecute(): Void
+        access(all) fun Execute(): Void
+
+        access(all) fun Pre(): Void
+
+        access(all) fun Post(): Void
 
         init(args: [AnyStruct])
     }
