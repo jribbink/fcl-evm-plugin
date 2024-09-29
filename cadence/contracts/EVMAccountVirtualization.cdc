@@ -39,8 +39,7 @@ access(all) contract EVMAccountVirtualization {
             return getCurrentBlock().height >= self.referenceBlockHeight + EVMAccountVirtualization.blocksUntilExpiration
         }
 
-        access(contract) fun borrow(): &AnyStruct {
-
+        access(contract) fun borrow(virtualTransaction: AccountVirtualization.VirtualTransactionLocator): &AnyStruct {
             let virtualAccount = EVMAccountVirtualization.accountRegistry[String.encodeHex(self.address.toBytes())]
                 ?? panic("Virtual account not found")
             

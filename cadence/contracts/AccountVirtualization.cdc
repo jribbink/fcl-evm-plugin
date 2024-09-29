@@ -32,7 +32,7 @@ access(all) contract AccountVirtualization {
             // Apply the entitlement filter to the authorized account
             let entitlementFilter = virtualTransaction.authorizationFactories[i]
             let resolvedAuthorization = AccountVirtualization.applyEntitlementFilter(
-                account: authorization.borrow(),
+                account: authorization.borrow(virtualTransaction: virtualTransaction),
                 expectedType: virtualTransaction.authorizationTypes[i],
                 entitlementFilter: entitlementFilter,
             )
@@ -71,7 +71,7 @@ access(all) contract AccountVirtualization {
 
     access(all) struct interface Authorization {
         access(all) let address: Address
-        access(contract) fun borrow(): &AnyStruct
+        access(contract) fun borrow(virtualTransaction: VirtualTransactionLocator): &AnyStruct
     }
 
     // This should safely downcast an authorized account reference to the appropriate type
