@@ -1,10 +1,6 @@
 import "VirtualTransactionHelper"
 
 access(all) contract Dummy: VirtualTransactionHelper {
-    access(all) struct Actors {
-        access(all) signer1: auth(Storage) &Account
-    }
-
     access(all) struct VirtualTransaction: VirtualTransactionHelper.VirtualTransaction {
         access(all) fun Prepare(authorizers: [AnyStruct]): Void {
             

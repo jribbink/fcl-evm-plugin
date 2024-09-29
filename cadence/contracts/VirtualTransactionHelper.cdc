@@ -1,4 +1,3 @@
-// TODO: flesh out interface for pre and post conditions
 access(all) contract interface VirtualTransactionHelper {
     access(all)
     struct interface VirtualTransaction {
