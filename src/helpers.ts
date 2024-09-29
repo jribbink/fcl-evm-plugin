@@ -9,4 +9,4 @@ export async function evmMutate(
 ) {
     // TODO: This should be abstracted away
     const currentUser = fcl.currentUser()
-}
+} 
