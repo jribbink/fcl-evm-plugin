@@ -57,35 +57,31 @@ access(all) contract EVMVirtualAccountManager {
         // Resolve all authorizations
         var resolvedAuthorizations: [AnyStruct] = []
         for i, authorization in authorizations {
+            var rawAuthorization: &AnyStruct? = nil
             if authorization.getType() == Type<EVMVirtualAccountManager.VirtualAuthorization>() {
                 let virtualAuthorization = authorization as! EVMVirtualAccountManager.VirtualAuthorization
-                let entitlementFilter = virtualTransaction.authorizationFactories[i]
 
                 let virtualAccount = self.accountRegistry[String.encodeHex(virtualAuthorization.address.toVariableSized())]
                     ?? panic("Virtual account not found")
                 
-                if !virtualAccount.verifySignature(signature: virtualAuthorization.signature) {
-                    panic("Not authorized")
-                }
-                
-                let resolvedAuthorization = EVMVirtualAccountManager.applyEntitlementFilter(
-                    account: virtualAccount.account.borrow()!,
-                    expectedType: virtualTransaction.authorizationTypes[0],
-                    entitlementFilter: entitlementFilter,
-                )
-                resolvedAuthorizations.append(resolvedAuthorization)
+                assert(virtualAccount.verifySignature(signature: virtualAuthorization.signature), message: "Signature verification failed")
+
+                rawAuthorization = virtualAccount.account.borrow() ?? panic("Could not borrow reference to virtual account")
             } else if authorization.getType() == Type<EVMVirtualAccountManager.PreAuthorization>() {
-                let preAuthorization = authorization as! EVMVirtualAccountManager.PreAuthorization
-                let entitlementFilter = virtualTransaction.authorizationFactories[i]
-                let resolvedAuthorization = EVMVirtualAccountManager.applyEntitlementFilter(
-                    account: preAuthorization.authorization,
-                    expectedType: virtualTransaction.authorizationTypes[0],
-                    entitlementFilter: entitlementFilter,
-                )
-                resolvedAuthorizations.append(preAuthorization.authorization)
+                rawAuthorization = (authorization as! EVMVirtualAccountManager.PreAuthorization).authorization
             } else {
                 panic("Unknown authorization type")
             }
+
+            // Apply the entitlement filter to the authorized account
+            let entitlementFilter = virtualTransaction.authorizationFactories[i]
+            let resolvedAuthorization = EVMVirtualAccountManager.applyEntitlementFilter(
+                account: rawAuthorization!,
+                expectedType: virtualTransaction.authorizationTypes[i],
+                entitlementFilter: entitlementFilter,
+            )
+
+            resolvedAuthorizations.append(resolvedAuthorization)
         }
         
         // Call the virtual transaction
@@ -151,10 +147,10 @@ access(all) contract EVMVirtualAccountManager {
         expectedType: Type,
         entitlementFilter: {EVMVirtualAccountManager.EntitlementFilter},
     ): &AnyStruct {
+        let expectedAddress = (account as! &Account).address
         let filtered = entitlementFilter.cast(account: account)
-        if filtered.getType() != expectedType {
-            panic("Entitlement filter did not return the correct type")
-        }
+        assert(filtered.getType() == expectedType, message: "Entitlement filter did not return the expected type")
+        assert((filtered as! &Account).address == expectedAddress, message: "Entitlement filter did not return the expected address")
         return filtered
     }
 
