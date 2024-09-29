@@ -5,6 +5,8 @@ access(all) contract EVMVirtualAccountManager {
 
     // Stores all VirtualAccount interactions where transaction hash is the key
     access(all) let transactionRegistry: {Type: VirtualTransactionLocator}
+
+    access(all) let blocksUntilExpiration: UInt64
     
     access(all) struct VirtualTransactionLocator {
         access(all) let acctAddress: Address
@@ -22,6 +24,7 @@ access(all) contract EVMVirtualAccountManager {
 
     access(all) struct VirtualAccount {
         access(contract) let account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>
+        access(all) var nonce: UInt64
 
         // TODO: Add in other transaction features that are necessary (i.e. reference block)
         // TODO: what if multiple virtual accounts are used
@@ -30,6 +33,7 @@ access(all) contract EVMVirtualAccountManager {
 
         init(account: Capability<auth(Storage, Contracts, Inbox, Capabilities, Keys) &Account>) {
             self.account = account
+            self.nonce = 0
         }
 
         access(all) fun verifySignature(
@@ -37,6 +41,14 @@ access(all) contract EVMVirtualAccountManager {
         ): Bool {
             // TODO: NOOP for now
             return true
+        }
+
+        access(all) fun borrow(): &Account {
+            return self.account.borrow()!
+        }
+
+        access(contract) fun incrementNonce() {
+            self.nonce = self.nonce + 1
         }
     }
 
@@ -64,11 +76,19 @@ access(all) contract EVMVirtualAccountManager {
                 let virtualAccount = self.accountRegistry[String.encodeHex(virtualAuthorization.address.toVariableSized())]
                     ?? panic("Virtual account not found")
                 
+                // Verify the signature
                 assert(virtualAccount.verifySignature(signature: virtualAuthorization.signature), message: "Signature verification failed")
 
+                // Verify the nonce
+                assert(virtualAccount.nonce == virtualAuthorization.nonce, message: "Nonce verification failed")
+                virtualAccount.incrementNonce()
+
+                // Verify the reference block
+                assert(!virtualAuthorization.isExpired(), message: "Authorization is expired")
+
                 rawAuthorization = virtualAccount.account.borrow() ?? panic("Could not borrow reference to virtual account")
-            } else if authorization.getType() == Type<EVMVirtualAccountManager.PreAuthorization>() {
-                rawAuthorization = (authorization as! EVMVirtualAccountManager.PreAuthorization).authorization
+            } else if authorization.getType() == Type<EVMVirtualAccountManager.NativeAuthorization>() {
+                rawAuthorization = (authorization as! EVMVirtualAccountManager.NativeAuthorization).authorization
             } else {
                 panic("Unknown authorization type")
             }
@@ -118,16 +138,38 @@ access(all) contract EVMVirtualAccountManager {
     access(all) struct VirtualAuthorization: Authorization {
         access(all) let address: Address
         access(all) let signature: String
+        access(all) let nonce: UInt64
+        access(all) let referenceBlockId: [UInt8; 32]
+        // We cannot lookup a reference block by hash, so Cadence needs a "hint" to find the block
+        // It is not actually used for authorization, but is used to find the block
+        access(all) let referenceBlockHeight: UInt64
+
         init(
             address: Address,
             signature: String,
+            nonce: UInt64,
+            referenceBlockId: [UInt8; 32],
+            referenceBlock: UInt64,
         ) {
             self.address = address
             self.signature = signature
+            self.nonce = nonce
+            self.referenceBlockId = referenceBlockId
+            self.referenceBlockHeight = referenceBlock
+        }
+
+        access(all) fun isExpired(): Bool {
+            let refBlock = getBlock(at: self.referenceBlockHeight)
+            if refBlock == nil {
+                return true
+            }
+
+            assert(refBlock!.id == self.referenceBlockId, message: "Reference block hash does not match")
+            return getCurrentBlock().height >= self.referenceBlockHeight + EVMVirtualAccountManager.blocksUntilExpiration
         }
     }
 
-    access(all) struct PreAuthorization: Authorization {
+    access(all) struct NativeAuthorization: Authorization {
         access(all) let authorization: &AnyStruct
 
         init(
@@ -202,5 +244,6 @@ access(all) contract EVMVirtualAccountManager {
     init() {
         self.accountRegistry = {}
         self.transactionRegistry = {}
+        self.blocksUntilExpiration = 590
     }
 }
