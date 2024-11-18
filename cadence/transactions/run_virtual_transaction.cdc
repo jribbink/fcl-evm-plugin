@@ -1,19 +1,20 @@
-import "EVMVirtualAccountManager"
-import "Dummy" // Explicit import statement helps with readability/indexers
+import "AccountVirtualization"
+import "EVMAccountVirtualization"
+import "Dummy"
 
 transaction(
-    evmAddress: [UInt8],
-    signature: String
+    authorizations: [EVMAccountVirtualization.Authorization],
+    args: [AnyStruct],
 ) {
-    // TODO: Who pays?  Currently paid for by a hosted signer, but there may be a way to recover fees
-    prepare() {
-        EVMVirtualAccountManager.runVirtualTransaction(
-            virtualTransactionType: Type<Dummy>(),
-            arguments: [],
-            signers: [],
-            virtualSignerIndex: 0,
-            evmAddress: evmAddress.toConstantSized<[UInt8; 20]>()!,
-            signature: ""
+    prepare(relayer: auth(Storage) &Account) {
+        let nonce = relayer.storage.borrow<&AccountVirtualization.Nonce>(from: /storage/virtualizationNonce)
+            ?? panic("Nonce not found")
+
+        AccountVirtualization.runVirtualTransaction(
+            transactionType: Type<Dummy.VirtualTransaction>(),
+            args: args,
+            authorizations: authorizations,
+            nonce: nonce,
         )
     }
 }

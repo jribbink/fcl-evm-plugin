@@ -12,20 +12,14 @@
 				"testing": "0000000000000007"
 			}
 		},
-		"EVMAccountVirtualiztion": {
-			"source": "cadence/contracts/AccountVirtualization.cdc",
+		"EVMAccountVirtualization": {
+			"source": "cadence/contracts/EVMAccountVirtualization.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
 		},
 		"NativeAccountVirtualization": {
-			"source": "cadence/contracts/AccountVirtualization.cdc",
-			"aliases": {
-				"testing": "0000000000000007"
-			}
-		},
-		"VirtualTransactionHelper": {
-			"source": "cadence/contracts/VirtualTransactionHelper.cdc",
+			"source": "cadence/contracts/NativeAccountVirtualization.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
@@ -72,8 +66,7 @@
 		"testnet": {
 			"2": [
 				"Dummy",
-				"AccountVirtualization",
-				"VirtualTransactionHelper"
+				"AccountVirtualization"
 			]
 		}
 	}

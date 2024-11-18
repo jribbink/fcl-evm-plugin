@@ -1,77 +1,109 @@
-import "VirtualTransactionHelper"
-
 access(all) contract AccountVirtualization {
     // Stores all VirtualAccount interactions where transaction hash is the key
-    access(all) let transactionRegistry: {Type: VirtualTransactionLocator}
+    access(all) let transactionRegistry: {Type: VirtualTransactionDefinition}
     
-    access(all) struct VirtualTransactionLocator {
-        access(all) let acctAddress: Address
-        access(all) let name: String
+    access(all) struct VirtualTransactionDefinition {
+        access(all) let body: {VirtualTransactionBody}
+        access(all) let argsType: Type
         access(all) let authorizationTypes: [Type]
-        access(all) let authorizationFactories: [{AccountVirtualization.EntitlementFilter}]
+        access(all) let authorizationFilters: [{AccountVirtualization.EntitlementFilter}]
 
-        init(acctAddress: Address, name: String, authorizationTypes: [Type], authorizationFactories: [{AccountVirtualization.EntitlementFilter}]) {
-            self.acctAddress = acctAddress
-            self.name = name
+        init(
+            body: {VirtualTransactionBody},
+            argsType: Type,
+            authorizationTypes: [Type],
+            authorizationFilters: [{AccountVirtualization.EntitlementFilter}],
+        ) {
+            self.body = body
+            self.argsType = argsType
             self.authorizationTypes = authorizationTypes
-            self.authorizationFactories = authorizationFactories
+            self.authorizationFilters = authorizationFilters
         }
+    }
+
+    access(all)
+    struct interface VirtualTransactionBody {
+        access(all) fun Prepare(
+            authorizers: [AnyStruct],
+            args: [AnyStruct],
+        ): Void
+
+        access(all) fun Execute(
+            args: [AnyStruct],
+        ): Void
+
+        access(all) fun Pre(
+            args: [AnyStruct],
+        ): Void
+
+        access(all) fun Post(
+            args: [AnyStruct],
+        ): Void
     }
 
     access(all) fun runVirtualTransaction(
         transactionType: Type,
+        args: [AnyStruct],
         authorizations: [{Authorization}],
-        arguments: [AnyStruct],
+        nonce: &Nonce,
     ): Void {
-        let virtualTransaction = AccountVirtualization.transactionRegistry[transactionType]
+        let virtualExecutable = AccountVirtualization.transactionRegistry[transactionType]
             ?? panic("Function not found in transaction registry")
+
+        let virtualTransaction = VirtualTransaction(
+            executable: virtualExecutable,
+            authorizations: authorizations,
+            args: args,
+            nonce: nonce,
+        )
+        
+        // Verify the arguments
+        assert(args.getType() == virtualExecutable.argsType, message: "Arguments do not match the expected type")
 
         // Resolve all authorizations
         var resolvedAuthorizations: [AnyStruct] = []
         for i, authorization in authorizations {
             // Apply the entitlement filter to the authorized account
-            let entitlementFilter = virtualTransaction.authorizationFactories[i]
+            let entitlementFilter = virtualExecutable.authorizationFilters[i]
             let resolvedAuthorization = AccountVirtualization.applyEntitlementFilter(
                 account: authorization.borrow(virtualTransaction: virtualTransaction),
-                expectedType: virtualTransaction.authorizationTypes[i],
+                expectedType: virtualExecutable.authorizationTypes[i],
                 entitlementFilter: entitlementFilter,
             )
 
             resolvedAuthorizations.append(resolvedAuthorization)
         }
-        
-        // Call the virtual transaction
-        let txContract = getAccount(virtualTransaction.acctAddress).contracts.borrow<&{VirtualTransactionHelper}>(name: virtualTransaction.name)
-            ?? panic("Could not borrow reference to VirtualTransactionHelper")
-
-        let tx = txContract.createVirtualTransaction(args: arguments)
 
         // Execute the virtual transaction
-        tx.Prepare(authorizers: resolvedAuthorizations)
-        tx.Pre()
-        tx.Execute()
-        tx.Post()
+        let body = virtualExecutable.body
+        body.Prepare(authorizers: resolvedAuthorizations, args: args)
+        body.Pre(args: args)
+        body.Execute(args: args)
+        body.Post(args: args)
     }
 
     access(all) struct VirtualTransaction {
-        access(all) let executable: {VirtualTransactionHelper.VirtualTransaction}
+        access(all) let executable: VirtualTransactionDefinition
         access(all) let authorizations: [{Authorization}]
-        access(all) let arguments: [AnyStruct]
+        access(all) let args: AnyStruct
+        access(all) let nonce: &Nonce
 
         init(
-            executable: {VirtualTransactionHelper.VirtualTransaction},
+            executable: VirtualTransactionDefinition,
             authorizations: [{Authorization}],
-            arguments: [AnyStruct],
+            args: AnyStruct,
+            nonce: &Nonce,
         ) {
             self.executable = executable
             self.authorizations = authorizations
-            self.arguments = arguments
+            self.args = args
+            self.nonce = nonce
         }
     }
 
     access(all) struct interface Authorization {
         access(all) let address: Address
-        access(contract) fun borrow(virtualTransaction: VirtualTransactionLocator): &AnyStruct
+        access(contract) fun borrow(virtualTransaction: VirtualTransaction): &AnyStruct
     }
 
     // This should safely downcast an authorized account reference to the appropriate type
@@ -93,34 +125,43 @@ access(all) contract AccountVirtualization {
 
     access(all)
     fun createVirtualTransaction(
-        payer: auth(BorrowValue) &Account,
+        body: {AccountVirtualization.VirtualTransactionBody},
+        argsType: Type,
         authorizationTypes: [Type],
-        authorizationFactories: [{AccountVirtualization.EntitlementFilter}],
-        transactionBody: [UInt8],
+        authorizationFilters: [{AccountVirtualization.EntitlementFilter}],
     ): Void {
-        let deployer = Account(payer: payer)
+        AccountVirtualization.transactionRegistry[body.getType()] = VirtualTransactionDefinition(
+            body: body,
+            argsType: argsType,
+            authorizationTypes: authorizationTypes,
+            authorizationFilters: authorizationFilters,
+        )
+    }
 
-        let hash = HashAlgorithm.SHA3_256.hash(transactionBody)
-        
-        // TODO: temporary contract name
-        let contractName = "VirtualTransactionDefinition"
-        
-        let deployedContract = deployer.contracts.add(name: contractName, code: transactionBody)
+    /*
+     Nonce is a simple counter that is used to prevent replay attacks.
+     It is formatted as a 128-bit number, with the lower 64 bits being the nonce value and the upper 64 bits being the resource UUID.
+     */
+    access(all) entitlement Increment
+    access(all) resource Nonce {
+        access(self) var value: UInt64
 
-        for pubType in deployedContract.publicTypes() {
-            if !pubType.isSubtype(of: Type<AccountVirtualization.VirtualTransaction>()) {
-                continue
-            }
-            AccountVirtualization.transactionRegistry[pubType] = VirtualTransactionLocator(
-                acctAddress: deployer.address,
-                name: contractName,
-                authorizationTypes: authorizationTypes,
-                authorizationFactories: authorizationFactories,
-            )
-            return
+        access(Increment) fun increment() {
+            // TODO: overflow?
+            self.value = self.value + 1
         }
 
-        panic("No VirtualTransaction found in deployed contract")
+        access(all) fun get(): UInt128 {
+            return UInt128(self.value) + (UInt128(self.uuid) << 64)
+        }
+
+        init() {
+            self.value = 0
+        }
+    }
+
+    access(all) fun createNonce(): @Nonce {
+        return <-create Nonce()
     }
 
     init() {

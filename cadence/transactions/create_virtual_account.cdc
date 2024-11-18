@@ -1,4 +1,4 @@
-import "EVMVirtualAccountManager"
+import "EVMAccountVirtualization"
 
 transaction(evmAddress: [UInt8]) {
     prepare(signer: auth(BorrowValue) &Account) {

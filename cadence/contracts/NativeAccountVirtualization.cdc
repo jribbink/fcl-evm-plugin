@@ -12,7 +12,7 @@ access(all) contract NativeAccountVirtualization {
             self.address = (authorization as! &Account).address
         }
 
-        access(contract) fun borrow(virtualTransaction: AccountVirtualization.VirtualTransactionLocator): &AnyStruct {
+        access(contract) fun borrow(virtualTransaction: AccountVirtualization.VirtualTransaction): &AnyStruct {
             return self.authorization
         }
     }

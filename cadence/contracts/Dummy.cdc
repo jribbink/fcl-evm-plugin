@@ -1,30 +1,22 @@
-import "VirtualTransactionHelper"
+import "AccountVirtualization"
 
-access(all) contract Dummy: VirtualTransactionHelper {
-    access(all) struct VirtualTransaction: VirtualTransactionHelper.VirtualTransaction {
-        access(all) fun Prepare(authorizers: [AnyStruct]): Void {
+access(all) contract Dummy {
+    access(all) struct VirtualTransaction: AccountVirtualization.VirtualTransactionBody {
+        access(all) fun Prepare(authorizers: [AnyStruct], args: [AnyStruct]): Void {
             
             // Noop, if this passes, the test is successful
         }
 
-        access(all) fun Execute(): Void {
+        access(all) fun Execute(args: [AnyStruct]): Void {
             // Noop, if this passes, the test is successful
         }
 
-        access(all) fun Pre(): Void {
+        access(all) fun Pre(args: [AnyStruct]): Void {
             // Noop, if this passes, the test is successful
         }
 
-        access(all) fun Post(): Void {
+        access(all) fun Post(args: [AnyStruct]): Void {
             // Noop, if this passes, the test is successful
         }
-
-        init(args: [AnyStruct]) {
-            // Noop, if this passes, the test is successful
-        }
-    }
-
-    access(all) fun createVirtualTransaction(args: [AnyStruct]): {VirtualTransactionHelper.VirtualTransaction} {
-        return VirtualTransaction(args: args)
     }
 }
