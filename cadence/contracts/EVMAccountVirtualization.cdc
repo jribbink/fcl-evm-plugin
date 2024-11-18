@@ -45,7 +45,13 @@ access(all) contract EVMAccountVirtualization {
                 ?? panic("Virtual account not found")
             
             // Verify the signature
-            assert(virtualAccount.verifySignature(signature: self.signature), message: "Signature verification failed")
+            assert(
+                virtualAccount.verifySignature(
+                    virtualTransaction: virtualTransaction,
+                    signature: self.signature,
+                ),
+                message: "Signature verification failed"
+            )
 
             // Verify the reference block
             assert(!self.isExpired(), message: "Authorization is expired")
@@ -62,6 +68,7 @@ access(all) contract EVMAccountVirtualization {
         }
 
         access(all) fun verifySignature(
+            virtualTransaction: AccountVirtualization.VirtualTransaction,
             signature: String,
         ): Bool {
             // TODO: NOOP for now

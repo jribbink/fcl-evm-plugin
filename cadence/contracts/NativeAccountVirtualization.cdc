@@ -3,7 +3,7 @@ import "AccountVirtualization"
 access(all) contract NativeAccountVirtualization {
     access(all) struct Authorization: AccountVirtualization.Authorization {
         access(all) let address: Address
-        access(all) let authorization: &AnyStruct
+        access(self) let authorization: &AnyStruct
 
         init(
             authorization: &AnyStruct,

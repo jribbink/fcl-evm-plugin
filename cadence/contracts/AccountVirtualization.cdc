@@ -45,7 +45,7 @@ access(all) contract AccountVirtualization {
         transactionType: Type,
         args: [AnyStruct],
         authorizations: [{Authorization}],
-        nonce: &Nonce,
+        nonce: auth(Increment) &Nonce,
     ): Void {
         let virtualExecutable = AccountVirtualization.transactionRegistry[transactionType]
             ?? panic("Function not found in transaction registry")
@@ -73,6 +73,9 @@ access(all) contract AccountVirtualization {
 
             resolvedAuthorizations.append(resolvedAuthorization)
         }
+
+        // Increment the nonce
+        nonce.increment()
 
         // Execute the virtual transaction
         let body = virtualExecutable.body
@@ -107,6 +110,7 @@ access(all) contract AccountVirtualization {
     }
 
     // This should safely downcast an authorized account reference to the appropriate type
+    // It is not possible to dynamically downcast to a particular type, so we instead need a user-defined generator function
     access(all) struct interface EntitlementFilter {
         access(all) fun cast(account: &AnyStruct): &AnyStruct
     }
